@@ -14,7 +14,7 @@ import (
 
 const savePath = "/home/d/public/dav/%s/%s"
 const saveP = "/home/d/public/dav/%s"
-const visURL = "https://d.evlic.cn/public/%s/%s"
+const visURL = "https://d.evlic.cn/public/dav/%s/%s"
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
@@ -58,6 +58,7 @@ const (
 	Fail
 )
 
+// PathExists 检查路径是否存在
 func PathExists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
@@ -72,10 +73,11 @@ func PathExists(path string) (bool, error) {
 func process(ctx *gin.Context, key string, data []*multipart.FileHeader) {
 	path := fmt.Sprintf(saveP, key)
 	if ok, err := PathExists(path); err != nil || !ok {
-		err = os.Mkdir(path, os.ModePerm)
+		err = os.MkdirAll(path, os.ModePerm)
 		if err != nil {
 			log.Println("mkdir err!!")
 			ctx.String(500, "mkdir err!!")
+			return
 		}
 	}
 
