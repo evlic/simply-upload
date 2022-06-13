@@ -2,21 +2,25 @@ package main
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"log"
 	"mime/multipart"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/gin-gonic/gin"
 )
 
-const savePath = "/home/d/public/%s/%s"
-const visUrl = "https://d.evlic.cn/public/%s/%s"
+const savePath = "/home/d/public/dav/%s/%s"
+const saveP = "/home/d/public/dav/%s"
+const visURL = "https://d.evlic.cn/public/%s/%s"
 
 func main() {
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
-	r.POST("/upload", func(ctx *gin.Context) {
-		key := ctx.Query("key")
+	r.POST("/@upload", func(ctx *gin.Context) {
+		key := ctx.PostForm("key")
 		data, err := ctx.MultipartForm()
 		if err != nil {
 			log.Println("get file error!", err)
@@ -35,17 +39,46 @@ func main() {
 			ctx.String(400, "input err!")
 			return
 		}
+		if key == "" {
+			key = "def"
+		}
 		// 参数校验结束
+
+		process(ctx, key, data.File["data"])
 	})
+	r.Run(":12333")
 }
 
 const (
+	// AllSuccess 全部成功
 	AllSuccess = iota
+	// PartSuccess 部分成功
 	PartSuccess
+	// Fail 保存操作失败
 	Fail
 )
 
+func PathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
 func process(ctx *gin.Context, key string, data []*multipart.FileHeader) {
+	path := fmt.Sprintf(saveP, key)
+	if ok, err := PathExists(path); err != nil || !ok {
+		err = os.Mkdir(path, os.ModePerm)
+		if err != nil {
+			log.Println("mkdir err!!")
+			ctx.String(500, "mkdir err!!")
+		}
+	}
+
 	var (
 		status byte
 		cnt    int64
@@ -64,7 +97,7 @@ func process(ctx *gin.Context, key string, data []*multipart.FileHeader) {
 				go atomic.AddInt64(&cnt, 1)
 				go log.Println("save fail")
 			} else {
-				urls = append(urls, fmt.Sprintf(visUrl, key, file.Filename))
+				urls = append(urls, fmt.Sprintf(visURL, key, file.Filename))
 			}
 			wg.Done()
 		}(d)
