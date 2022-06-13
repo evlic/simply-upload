@@ -85,24 +85,24 @@ func process(ctx *gin.Context, key string, data []*multipart.FileHeader) {
 		status byte
 		cnt    int64
 		n      = int64(len(data))
-		urls   = make([]string, 0, n)
+		urls   = make([]string, n)
 
 		wg sync.WaitGroup
 	)
 
 	wg.Add(len(data))
-	for _, d := range data {
-		go func(file *multipart.FileHeader) {
+	for idx, d := range data {
+		go func(file *multipart.FileHeader, idx int) {
 			err := ctx.SaveUploadedFile(file, fmt.Sprintf(savePath, key, file.Filename))
 			if err != nil {
 				status = PartSuccess
 				go atomic.AddInt64(&cnt, 1)
 				go log.Println("save fail")
 			} else {
-				urls = append(urls, fmt.Sprintf(visURL, key, file.Filename))
+				urls[idx] = fmt.Sprintf(visURL, key, file.Filename)
 			}
 			wg.Done()
-		}(d)
+		}(d, idx)
 	}
 	wg.Wait()
 
